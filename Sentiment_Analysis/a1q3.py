@@ -24,7 +24,7 @@ from sklearn.naive_bayes import BernoulliNB as BNB
 from sklearn.naive_bayes import MultinomialNB as MNB
 from sklearn.naive_bayes import GaussianNB as GNB
 from sklearn.svm import LinearSVC as SVM
-from sklearn.feature_extraction.text import CountVectorizer as Vectorizer
+from sklearn.model_selection import GridSearchCV as GS
 from tqdm import tqdm
 
 matplotlib.use('Agg')
@@ -326,21 +326,26 @@ class Classifier():
         elif self.model == 'BNB':
             # Bernoulli naive bayes
             self.classifier = BNB()
+            # self.tok = RT(r'\w+')
+            # vectorizer = Vectorizer(tokenizer=self.tok.tokenize)
+            # train_data = self.data_loader.get_trainset()
+            # train_data = [vectorizer.fit_transform(train_data[0]).toarray(), train_data[1]]
+            # self.vocabulary = vectorizer.get_feature_names()
         elif self.model == 'MNB':
             # Multinomial naive bayes
             self.classifier = MNB()
-            #vectorizer = Vectorizer(min_df=0.001)
-            #train_data = self.data_loader.get_trainset()
-            #train_data = [vectorizer.fit_transform(train_data[0]).toarray(), train_data[1]]
-            #self.vocabulary = vectorizer.get_feature_names()
         elif self.model == 'LR':
             # Logistic regression
-            self.classifier = LR(penalty=self.penalty, C=self.c, max_iter=self.epoch, solver='liblinear')
+            param={'C':[10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01]}
+            self.classifier = GS(cv=5, estimator=LR(penalty=self.penalty, max_iter=self.epoch, solver='liblinear'), param_grid=param)
         elif self.model == 'SVM':
             # Support vector machine
             self.penalty = self.penalty if self.penalty in ['l1', 'l2'] else 'l2'
             dual = self.penalty=='l2'
-            self.classifier = SVM(penalty=self.penalty, C=self.c, max_iter=self.epoch, dual=dual)
+            #self.classifier = SVM(penalty=self.penalty, C=self.c, max_iter=self.epoch, dual=dual)
+            param={'C':[10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01]}
+            self.classifier = GS(cv=5, estimator=SVM(penalty=self.penalty, dual=dual, max_iter=self.epoch), param_grid=param)
+
         elif self.model == 'R':
             # RandomGuess
             self.classifier = DC(strategy='stratified')
@@ -358,8 +363,9 @@ class Classifier():
         logging.info('-' * 20)
         logging.info('Start evaluating the %s model', self.model)
         test_data = self.data_loader.get_testset()
-        #vectorizer = Vectorizer(vocabulary=self.vocabulary)
-        # = [vectorizer.fit_transform(test_data[0]).toarray(), test_data[1]]
+
+        # vectorizer = Vectorizer(tokenizer=self.tok.tokenize, vocabulary=self.vocabulary)
+        # test_data = [vectorizer.fit_transform(test_data[0]).toarray(), test_data[1]]
 
         test_data = self.feature_extractor.extract_feature(test_data)
         predictions = self.classifier.predict(test_data[0])
@@ -386,13 +392,13 @@ class Classifier():
 def main():
     # Parameters
     parser = argparse.ArgumentParser("COMP550_Assignment1_Question3")
-    parser.add_argument('--model', type=str, default='MNB', choices=['BNB', 'MNB', 'GNB', 'LR', 'SVM', 'R'],
+    parser.add_argument('--model', type=str, default='SVM', choices=['BNB', 'MNB', 'GNB', 'LR', 'SVM', 'R'],
                         help='Model used for this experiment')
-    parser.add_argument('--note', type=str, default='Test shot', help='Note for this experiment')
-    parser.add_argument('--feature_extract', action='append', default=['tokenize', 'stem', 'frequency'],
+    parser.add_argument('--note', type=str, default='Baseline', help='Note for this experiment')
+    parser.add_argument('--feature_extract', action='append', default=['regex_tokenize', 'tfidf'],
                         help='Feature extraction procedures')
     parser.add_argument('--feature_size', type=int, default=300, choices=[50, 100, 200, 300], help='Only used for GloVe')
-    parser.add_argument('--frequency_threshold', type=int, default=8,
+    parser.add_argument('--frequency_threshold', type=int, default=0,
                         help='Threshold for frequency count, all word present less than threshold will be counted as 0')
     parser.add_argument('--data_dir', type=str, default='D:\\McGill\\19Fall\\COMP 550\\Project\\data',
                         help='Path to data directory')
@@ -402,7 +408,7 @@ def main():
     parser.add_argument('--neg_data', type=str, default='rt-polaritydata\\rt-polarity.neg',
                         help='Path to negative data')
     parser.add_argument('--penalty', type=str, default='l2', choices=['l1', 'l2', 'elasticnet', 'none'], help='Penalty')
-    parser.add_argument('--C', type=float, default=0.5,
+    parser.add_argument('--C', type=float, default=0,
                         help='Inverse of regularization strength, smaller means stronger')
     parser.add_argument('--epoch', type=int, default=1000,
                         help='Maximum umber of iteration for gradient-based algorithm to converge')

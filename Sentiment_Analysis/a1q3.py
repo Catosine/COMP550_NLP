@@ -392,7 +392,7 @@ class Classifier():
 def main():
     # Parameters
     parser = argparse.ArgumentParser("COMP550_Assignment1_Question3")
-    parser.add_argument('--model', type=str, default='SVM', choices=['BNB', 'MNB', 'GNB', 'LR', 'SVM', 'R'],
+    parser.add_argument('--model', type=str, default='R', choices=['BNB', 'MNB', 'GNB', 'LR', 'SVM', 'R'],
                         help='Model used for this experiment')
     parser.add_argument('--note', type=str, default='Baseline', help='Note for this experiment')
     parser.add_argument('--feature_extract', action='append', default=['regex_tokenize', 'tfidf'],

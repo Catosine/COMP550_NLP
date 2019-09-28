@@ -24,13 +24,13 @@ from sklearn.naive_bayes import BernoulliNB as BNB
 from sklearn.naive_bayes import MultinomialNB as MNB
 from sklearn.naive_bayes import GaussianNB as GNB
 from sklearn.svm import LinearSVC as SVM
+from sklearn.feature_extraction.text import CountVectorizer as Vectorizer
 from tqdm import tqdm
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pandas import DataFrame
-import gc
 
 
 class DataLoader():
@@ -199,7 +199,7 @@ class FeatureExtractor():
                 feature.append(temp)
             data[0][idx] = feature
 
-        data = [np.array(data[0]), np.array(data[1])]
+        data = [np.array(data[0], dtype='uint16'), np.array(data[1], dtype='uint16')]
 
         return [data[0], data[1]]
 
@@ -226,7 +226,7 @@ class FeatureExtractor():
                     feature += np.zeros(self.glove_size)
             data[0][idx] = feature
 
-        data = [np.array(data[0]), np.array(data[1])]
+        data = [np.array(data[0], dtype='float32'), np.array(data[1], dtype='float32')]
 
         # Normalize data
         data[0] = data[0] - data[0].mean()
@@ -248,13 +248,13 @@ class FeatureExtractor():
                 sent_len = len(sentence)
                 if word in sentence:
                     tf = sentence.count(word)/sent_len
-                    idf = np.log(total_corpus/frequency)
+                    idf = np.log(total_corpus/frequency).astype(np.float32)
                     tfidf.append(tf*idf)
                 else:
                     tfidf.append(0)
             data[0][i] = tfidf
 
-        data = [np.array(data[0]), np.array(data[1])]
+        data = [np.array(data[0], dtype='float32'), np.array(data[1], dtype='float32')]
 
         return data
 
@@ -329,6 +329,10 @@ class Classifier():
         elif self.model == 'MNB':
             # Multinomial naive bayes
             self.classifier = MNB()
+            #vectorizer = Vectorizer(min_df=0.001)
+            #train_data = self.data_loader.get_trainset()
+            #train_data = [vectorizer.fit_transform(train_data[0]).toarray(), train_data[1]]
+            #self.vocabulary = vectorizer.get_feature_names()
         elif self.model == 'LR':
             # Logistic regression
             self.classifier = LR(penalty=self.penalty, C=self.c, max_iter=self.epoch, solver='liblinear')
@@ -354,6 +358,9 @@ class Classifier():
         logging.info('-' * 20)
         logging.info('Start evaluating the %s model', self.model)
         test_data = self.data_loader.get_testset()
+        #vectorizer = Vectorizer(vocabulary=self.vocabulary)
+        # = [vectorizer.fit_transform(test_data[0]).toarray(), test_data[1]]
+
         test_data = self.feature_extractor.extract_feature(test_data)
         predictions = self.classifier.predict(test_data[0])
         tn, fp, fn, tp = evaluator.confusion_matrix(test_data[1], predictions).ravel()
@@ -381,11 +388,11 @@ def main():
     parser = argparse.ArgumentParser("COMP550_Assignment1_Question3")
     parser.add_argument('--model', type=str, default='MNB', choices=['BNB', 'MNB', 'GNB', 'LR', 'SVM', 'R'],
                         help='Model used for this experiment')
-    parser.add_argument('--note', type=str, default='Baseline', help='Note for this experiment')
-    parser.add_argument('--feature_extract', action='append', default=['regex_tokenize', 'tfidf'],
+    parser.add_argument('--note', type=str, default='Test shot', help='Note for this experiment')
+    parser.add_argument('--feature_extract', action='append', default=['tokenize', 'stem', 'frequency'],
                         help='Feature extraction procedures')
     parser.add_argument('--feature_size', type=int, default=300, choices=[50, 100, 200, 300], help='Only used for GloVe')
-    parser.add_argument('--frequency_threshold', type=int, default=0,
+    parser.add_argument('--frequency_threshold', type=int, default=8,
                         help='Threshold for frequency count, all word present less than threshold will be counted as 0')
     parser.add_argument('--data_dir', type=str, default='D:\\McGill\\19Fall\\COMP 550\\Project\\data',
                         help='Path to data directory')
@@ -395,7 +402,7 @@ def main():
     parser.add_argument('--neg_data', type=str, default='rt-polaritydata\\rt-polarity.neg',
                         help='Path to negative data')
     parser.add_argument('--penalty', type=str, default='l2', choices=['l1', 'l2', 'elasticnet', 'none'], help='Penalty')
-    parser.add_argument('--C', type=float, default=0.1,
+    parser.add_argument('--C', type=float, default=0.5,
                         help='Inverse of regularization strength, smaller means stronger')
     parser.add_argument('--epoch', type=int, default=1000,
                         help='Maximum umber of iteration for gradient-based algorithm to converge')

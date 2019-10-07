@@ -5,6 +5,13 @@ import os.path as osp
 import logging
 import shutil
 import sys
+import numpy
+import nltk
+import nltk.tag.hmm as hmm
+import sklearn
+from tqdm import tqdm
+import string
+import gc
 
 class DataLoader():
 
@@ -14,37 +21,75 @@ class DataLoader():
         self.test_cipher = osp.join(data_dir, task, 'test_cipher.txt')
         self.test_plain = osp.join(data_dir, task, 'test_plain.txt')
 
-    def get_train_corpus(self):
+    def __get_train_corpus__(self):
         logging.info('-'*20)
         logging.info('Start loading train cipher text')
 
         if not osp.exists(self.train_cipher):
             logging.info('INVALID TRAIN CIPHER PATH: {}'.format(self.train_cipher))
 
-        corpus = list()
-        plain = open(self.train_plain, 'r', errors='ignore')
-        cipher = open(self.train_cipher, 'r', errors='ignore')
+        plain = list()
+        cipher = list()
+        p = open(self.train_plain, 'r', errors='ignore')
+        c = open(self.train_cipher, 'r', errors='ignore')
 
-        for encoded, decoded in zip(cipher.readlines(), plain.readlines()):
-            corpus.append((encoded, decoded))
+        for encoded, decoded in zip(c.readlines(), p.readlines()):
+            cipher.append(encoded)
+            plain.append(decoded)
 
-        return corpus
+        return cipher, plain
 
-    def get_test_corpus(self):
+    def __get_test_corpus__(self):
         logging.info('-'*20)
         logging.info('Start loading test cipher text')
 
         if not osp.exists(self.test_cipher):
             logging.info('INVALID TEST CIPHER PATH: {}'.format(self.test_cipher))
 
-        corpus = list()
-        plain = open(self.test_plain, 'r', errors='ignore')
-        cipher = open(self.test_cipher, 'r', errors='ignore')
+        plain = list()
+        cipher = list()
+        p = open(self.test_plain, 'r', errors='ignore')
+        c = open(self.test_cipher, 'r', errors='ignore')
 
-        for encoded, decoded in zip(cipher.readlines(), plain.readlines()):
-            corpus.append((encoded, decoded))
+        for encoded, decoded in zip(c.readlines(), p.readlines()):
+            cipher.append(encoded)
+            plain.append(decoded)
 
-        return corpus
+        return cipher, plain
+
+class FeatureExtractor():
+
+    def __init__(self, cipher, plain, lm=False, laplace=False):
+        self.cipher = cipher
+        self.plain = plain
+        self.lm = lm
+        self.laplace = laplace
+        logging.info('-'*20)
+        logging.info('Start processing data')
+        self.__clean_corpus__()
+
+    def __clean_corpus__(self):
+        for i, (encoded, decoded) in enumerate(tqdm(zip(self.cipher, self.plain))):
+            encoded = list(encoded)
+            decoded = list(decoded)
+            if self.lm:
+                to_keep = list(string.ascii_lowercase) + [' ', ',', '.']
+                for j, (char_e, char_d) in enumerate(zip(encoded, decoded)):
+                    if char_e not in to_keep or char_d not in to_keep:
+                        del encoded[j]
+                        del decoded[j]
+                        gc.collect()
+
+            self.cipher[i] = encoded
+            self.plain[i] = decoded
+
+    def __extract_sample_by_index__(self, idx):
+        return self.cipher[idx], self.plain[idx]
+
+class Tagger():
+
+    def __init__(self):
+        print('np')
 
 def main():
     parser = argparse.ArgumentParser("COMP550_Assignment2_Question3")
@@ -86,7 +131,12 @@ def main():
 
     # Modelling start below here
     dl = DataLoader(config.data_dir, task)
-    train_corpus = dl.get_train_corpus()
+
+    train_cipher, train_plain = dl.__get_train_corpus__()
+    train = FeatureExtractor(train_cipher, train_plain)
+
+    c, p = train.__extract_sample_by_index__(0)
+    print(c)
 
 if __name__ == '__main__':
     start_time = time.time()

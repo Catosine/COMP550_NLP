@@ -7,6 +7,7 @@ import shutil
 import sys
 
 class DataLoader():
+
     def __init__(self, data_dir, task):
         self.train_cipher = osp.join(data_dir, task, 'train_cipher.txt')
         self.train_plain = osp.join(data_dir, task, 'train_plain.txt')
@@ -45,7 +46,6 @@ class DataLoader():
 
         return corpus
 
-
 def main():
     parser = argparse.ArgumentParser("COMP550_Assignment2_Question3")
     parser.add_argument('--data_dir', type=str, default='D:\\McGill\\19Fall\\COMP 550\\Project\\data\\a2data',
@@ -54,16 +54,20 @@ def main():
     parser.add_argument('--note', type=str, default='testShot', help='Notes for this experiment')
     parser.add_argument('-laplace', action='store_true', help='Use laplace smoothing')
     parser.add_argument('-lm', action='store_true', help='Improved plaintext modelling')
+    #TODO Uncomment this line below before officially submit the code
+    #parser.add_argument('cipher_folder', type=str, default='cipher1', choices=['cipher1', 'cipher2', 'cipher3'], help='Which cipher to use')
     config = parser.parse_args()
 
-    task = sys.argv[-1]
+    #TODO Uncomment this line below before officially submit the code
+    #task = config.cipher_folder
+    task = 'cipher1'
 
     # Create log dir for experiments
     if not osp.exists(config.log_dir):
         os.mkdir(config.log_dir)
     laplace = 'laplace_smoothing' if config.laplace else 'no_smoothing'
     lm = 'improved_plaintext_modelling' if config.lm else 'no_extra_improvement'
-    log_path = 'standardHMM-{}-{}-{}-{}'.format(config.note, laplace, lm, time.strftime("%Y%m%d-%H%M%S"))
+    log_path = 'standardHMM-{}-{}-{}-{}-{}'.format(task, config.note, laplace, lm, time.strftime("%Y%m%d-%H%M%S"))
     config.log_dir = osp.join(os.getcwd(), config.log_dir, log_path)
     if not osp.exists(config.log_dir):
         os.mkdir(config.log_dir)
@@ -80,6 +84,7 @@ def main():
 
     logging.info('Config = %s', config)
 
+    # Modelling start below here
     dl = DataLoader(config.data_dir, task)
     train_corpus = dl.get_train_corpus()
 

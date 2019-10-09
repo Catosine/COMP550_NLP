@@ -15,63 +15,22 @@ import gc
 
 class DataLoader():
 
-    def __init__(self, data_dir, task):
+    def __init__(self, data_dir, task, lm=False):
         self.train_cipher = osp.join(data_dir, task, 'train_cipher.txt')
         self.train_plain = osp.join(data_dir, task, 'train_plain.txt')
         self.test_cipher = osp.join(data_dir, task, 'test_cipher.txt')
         self.test_plain = osp.join(data_dir, task, 'test_plain.txt')
-
-    def __get_train_corpus__(self):
-        logging.info('-'*20)
-        logging.info('Start loading train cipher text')
-
-        if not osp.exists(self.train_cipher):
-            logging.info('INVALID TRAIN CIPHER PATH: {}'.format(self.train_cipher))
-
-        plain = list()
-        cipher = list()
-        p = open(self.train_plain, 'r', errors='ignore')
-        c = open(self.train_cipher, 'r', errors='ignore')
-
-        for encoded, decoded in zip(c.readlines(), p.readlines()):
-            cipher.append(encoded)
-            plain.append(decoded)
-
-        return cipher, plain
-
-    def __get_test_corpus__(self):
-        logging.info('-'*20)
-        logging.info('Start loading test cipher text')
-
-        if not osp.exists(self.test_cipher):
-            logging.info('INVALID TEST CIPHER PATH: {}'.format(self.test_cipher))
-
-        plain = list()
-        cipher = list()
-        p = open(self.test_plain, 'r', errors='ignore')
-        c = open(self.test_cipher, 'r', errors='ignore')
-
-        for encoded, decoded in zip(c.readlines(), p.readlines()):
-            cipher.append(encoded)
-            plain.append(decoded)
-
-        return cipher, plain
-
-class FeatureExtractor():
-
-    def __init__(self, cipher, plain, lm=False, laplace=False):
-        self.cipher = cipher
-        self.plain = plain
         self.lm = lm
-        self.laplace = laplace
-        logging.info('-'*20)
-        logging.info('Start processing data')
-        self.__clean_corpus__()
 
-    def __clean_corpus__(self):
-        for i, (encoded, decoded) in enumerate(tqdm(zip(self.cipher, self.plain))):
+    def __get_corpus__(self, cipher_path, plain_path):
+        corpus = list()
+        p = open(plain_path, 'r', errors='ignore')
+        c = open(cipher_path, 'r', errors='ignore')
+
+        for encoded, decoded in tqdm(zip(c.readlines(), p.readlines())):
             encoded = list(encoded)
             decoded = list(decoded)
+
             if self.lm:
                 to_keep = list(string.ascii_lowercase) + [' ', ',', '.']
                 for j, (char_e, char_d) in enumerate(zip(encoded, decoded)):
@@ -80,16 +39,43 @@ class FeatureExtractor():
                         del decoded[j]
                         gc.collect()
 
-            self.cipher[i] = encoded
-            self.plain[i] = decoded
+            corpus.append(list(zip(encoded, decoded)))
 
-    def __extract_sample_by_index__(self, idx):
-        return self.cipher[idx], self.plain[idx]
+        return corpus
+
+    def get_train_corpus(self):
+        logging.info('-'*20)
+        logging.info('Start loading train corpus')
+
+        if not osp.exists(self.train_cipher):
+            logging.info('INVALID TRAIN CIPHER PATH: {}'.format(self.train_cipher))
+            exit(0)
+
+        if not osp.exists(self.train_plain):
+            logging.info('INVALID TRAIN PLAIN PATH: {}'.format(self.train_plain))
+            exit(0)
+
+        return self.__get_corpus__(self.train_cipher, self.train_plain)
+
+    def __get_test_corpus__(self):
+        logging.info('-'*20)
+        logging.info('Start loading test corpus')
+
+        if not osp.exists(self.test_cipher):
+            logging.info('INVALID TEST CIPHER PATH: {}'.format(self.test_cipher))
+            exit(0)
+
+        if not osp.exists(self.train_plain):
+            logging.info('INVALID TEST PLAIN PATH: {}'.format(self.test_plain))
+            exit(0)
+
+        return self.__get_corpus__(self.test_cipher, self.test_plain)
 
 class Tagger():
 
-    def __init__(self):
-        print('np')
+    def __init__(self, train_feature_extractor, test_feature_extractor):
+        self.train_feature_extractor = train_feature_extractor
+        self.test_feature_extractor = test_feature_extractor
 
 def main():
     parser = argparse.ArgumentParser("COMP550_Assignment2_Question3")
@@ -132,11 +118,8 @@ def main():
     # Modelling start below here
     dl = DataLoader(config.data_dir, task)
 
-    train_cipher, train_plain = dl.__get_train_corpus__()
-    train = FeatureExtractor(train_cipher, train_plain)
-
-    c, p = train.__extract_sample_by_index__(0)
-    print(c)
+    train_corpus = dl.get_train_corpus()
+    print(train_corpus[0][:10])
 
 if __name__ == '__main__':
     start_time = time.time()

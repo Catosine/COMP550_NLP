@@ -6,11 +6,8 @@ import logging
 import shutil
 import sys
 import nltk.tag.hmm as hmm
-from nltk.util import everygrams
-from nltk.probability import ConditionalProbDist as cpd
-from nltk.probability import ConditionalFreqDist as cfd
+from sklearn.metrics import accuracy_score as evaluate
 from collections import Counter
-from tqdm import tqdm
 import string
 import gc
 
@@ -25,6 +22,7 @@ class DataLoader:
         self.lm = lm
         self.train_corpus = None
         self.test_corpus = None
+        self.train_dictionary = None
 
     def __prepare_train_corpus__(self):
         logging.info('-' * 20)
@@ -43,9 +41,9 @@ class DataLoader:
         p = open(self.train_plain, 'r', errors='ignore')
         c = open(self.train_cipher, 'r', errors='ignore')
 
-        for encoded, decoded in tqdm(zip(c.readlines(), p.readlines())):
-            encoded = list(encoded)
-            decoded = list(decoded)
+        for encoded, decoded in zip(c.readlines(), p.readlines()):
+            encoded = list(encoded.rstrip('\n'))
+            decoded = list(decoded.rstrip('\n'))
 
             if self.lm:
                 to_keep = list(string.ascii_lowercase) + [' ', ',', '.']
@@ -73,18 +71,18 @@ class DataLoader:
             logging.info('INVALID TEST CIPHER PATH: {}'.format(self.test_cipher))
             exit(0)
 
-        if not osp.exists(self.train_plain):
+        if not osp.exists(self.test_plain):
             logging.info('INVALID TEST PLAIN PATH: {}'.format(self.test_plain))
             exit(0)
 
         plain = list()
         cipher = list()
         p = open(self.test_cipher, 'r', errors='ignore')
-        c = open(self.train_plain, 'r', errors='ignore')
+        c = open(self.test_plain, 'r', errors='ignore')
 
-        for encoded, decoded in tqdm(zip(c.readlines(), p.readlines())):
-            encoded = list(encoded)
-            decoded = list(decoded)
+        for encoded, decoded in zip(c.readlines(), p.readlines()):
+            encoded = list(encoded.rstrip('\n'))
+            decoded = list(decoded.rstrip('\n'))
 
             if self.lm:
                 to_keep = list(string.ascii_lowercase) + [' ', ',', '.']
@@ -97,56 +95,73 @@ class DataLoader:
             plain.append(decoded)
             cipher.append(encoded)
 
+        self.test_corpus = [cipher, plain]
+
     def get_test_corpus(self):
         if self.test_corpus is None:
             self.__prepare_test_corpus__()
         return self.test_corpus
 
-class FeatureBuilder:
+    def get_states_and_symbols(self):
+        if self.train_dictionary is None:
+            if self.train_corpus is None:
+                self.__prepare_train_corpus__()
+            cipher_c = Counter()
+            text_c = Counter()
+            for c, t in zip(self.train_corpus[0], self.train_corpus[1]):
+                cipher_c.update(c)
+                text_c.update(c)
+            self.train_dictionary = [cipher_c, text_c]
+
+        return self.train_dictionary
 
     @staticmethod
-    def build_dictionary(list_of_item):
-        dictionary = []
-        for sample in list_of_item:
-            dictionary += list(everygrams(sample, max_len=2))
+    def flat(l):
+        f = list()
+        for i in l:
+            f += i
+        return f
 
-        dictionary = list(set(dictionary))
-
-        return dictionary
-
-    @staticmethod
-    def build_conditional_freq_dist(list_of_item, dictionary=None):
-        if dictionary is None:
-            dictionary = FeatureBuilder.build_dictionary(list_of_item)
-
-        flatten_list = list()
-        for sample in list_of_item:
-            flatten_list += list(everygrams(sample, max_len=2))
-
-        freq_dict = dict()
-        for word in dictionary:
-            freq_dict[word] = flatten_list.count(word)
-
-        cond_freq_dist = cfd((freq_dict[x], x) for x in dictionary)
-
-        return cond_freq_dist
 
 class Tagger:
 
     def __init__(self, data_loader, laplace=False):
         self.data_loader = data_loader
-        if laplace:
-            # TODO Add laplace smoothing to hmm
-            logging.info('Currently not implemented')
-            raise NotImplemented
-        else:
-            self.hmm = hmm.HiddenMarkovModelTagger()
+        self.laplace = laplace
+        self.dictionary = self.data_loader.get_states_and_symbols()
+        self.model = hmm.HiddenMarkovModelTrainer(states=list(self.dictionary[0].keys()), symbols=list(self.dictionary[1].keys()))
 
     def train(self):
         logging.info('-' * 20)
         logging.info("Start training standard HMM tagger")
         train_corpus = self.data_loader.get_train_corpus()
-        self.hmm.train(train_corpus)
+        labelled = list()
+        for cipher, text in zip(train_corpus[0], train_corpus[1]):
+            labelled.append([(c, t) for c, t in zip(cipher, text)])
+        if self.laplace:
+            raise NotImplementedError
+        else:
+            self.model = self.model.train(labeled_sequences=labelled)
+        train_predict = DataLoader.flat(self._tag(train_corpus[0]))
+        ground_truth = DataLoader.flat(train_corpus[1])
+        acc = evaluate(ground_truth, train_predict)
+        logging.info('Training accuracy : %f', acc)
+
+    def test(self):
+        logging.info('-' * 20)
+        logging.info('Start testing the trained HMM tagger')
+        test_corpus = self.data_loader.get_test_corpus()
+        test_predict = DataLoader.flat(self._tag(test_corpus[0]))
+        ground_truth = DataLoader.flat(test_corpus[1])
+        acc = evaluate(ground_truth, test_predict)
+        logging.info('Testing accuracy : %f', acc)
+
+    def _tag(self, corpus):
+        pred = list()
+        for sent in corpus:
+            decode = self.model.tag(sent)
+            pred.append([d for (_, d) in decode])
+        return pred
 
 
 def main():
@@ -189,12 +204,15 @@ def main():
 
     # Modelling start below here
     dl = DataLoader(config.data_dir, task)
-    train_corpus = dl.get_train_corpus()
-    d = FeatureBuilder.build_dictionary(train_corpus[0])
-    c=d[0]
-    bg = FeatureBuilder.build_conditional_freq_dist(train_corpus[0], d)
-    print(c)
-    print(bg)
+    # Declare the tagger
+    tagger = Tagger(dl)
+    # Train the tagger
+    tagger.train()
+    # Test the tagger
+    tagger.test()
+
+
+
 if __name__ == '__main__':
     start_time = time.time()
     main()

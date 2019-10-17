@@ -6,6 +6,7 @@ import logging
 import shutil
 import sys
 import nltk.tag.hmm as hmm
+from nltk.probability import LaplaceProbDist as laplace
 from sklearn.metrics import accuracy_score as evaluate
 from collections import Counter
 import string
@@ -129,7 +130,8 @@ class Tagger:
         self.data_loader = data_loader
         self.laplace = laplace
         self.dictionary = self.data_loader.get_states_and_symbols()
-        self.model = hmm.HiddenMarkovModelTrainer(states=list(self.dictionary[0].keys()), symbols=list(self.dictionary[1].keys()))
+        self.model = hmm.HiddenMarkovModelTrainer(states=list(self.dictionary[0].keys()),
+                                                  symbols=list(self.dictionary[1].keys()))
 
     def train(self):
         logging.info('-' * 20)
@@ -139,7 +141,7 @@ class Tagger:
         for cipher, text in zip(train_corpus[0], train_corpus[1]):
             labelled.append([(c, t) for c, t in zip(cipher, text)])
         if self.laplace:
-            raise NotImplementedError
+            self.model = self.model.train(labeled_sequences=labelled, estimator=laplace)
         else:
             self.model = self.model.train(labeled_sequences=labelled)
         train_predict = DataLoader.flat(self._tag(train_corpus[0]))
@@ -157,11 +159,11 @@ class Tagger:
         logging.info('Testing accuracy : %f', acc)
 
     def _tag(self, corpus):
-        pred = list()
+        prediction = list()
         for sent in corpus:
             decode = self.model.tag(sent)
-            pred.append([d for (_, d) in decode])
-        return pred
+            prediction.append([d for (_, d) in decode])
+        return prediction
 
 
 def main():
@@ -179,6 +181,8 @@ def main():
     # TODO Uncomment this line below before officially submit the code
     # task = config.cipher_folder
     task = 'cipher1'
+    config.laplace = False
+    config.lm = False
 
     # Create log dir for experiments
     if not osp.exists(config.log_dir):
@@ -203,14 +207,13 @@ def main():
     logging.info('Config = %s', config)
 
     # Modelling start below here
-    dl = DataLoader(config.data_dir, task)
+    dl = DataLoader(config.data_dir, task, config.lm)
     # Declare the tagger
-    tagger = Tagger(dl)
+    tagger = Tagger(dl, config.laplace)
     # Train the tagger
     tagger.train()
     # Test the tagger
     tagger.test()
-
 
 
 if __name__ == '__main__':

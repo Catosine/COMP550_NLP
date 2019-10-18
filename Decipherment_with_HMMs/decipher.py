@@ -2,10 +2,12 @@ import argparse
 import time
 import os.path as osp
 import nltk.tag.hmm as hmm
-from nltk.probability import LaplaceProbDist as laplace
+from nltk.probability import LaplaceProbDist as laplace, ConditionalProbDist, FreqDist, ConditionalFreqDist
+from nltk.probability import MLEProbDist
+from nltk.corpus import treebank
 from sklearn.metrics import accuracy_score as score
+from tqdm import tqdm
 import string
-import gc
 
 
 class DataLoader:
@@ -39,14 +41,6 @@ class DataLoader:
             encoded = list(encoded.rstrip('\n'))
             decoded = list(decoded.rstrip('\n'))
 
-            if self.lm:
-                to_keep = list(string.ascii_lowercase) + [' ', ',', '.']
-                for j, (char_e, char_d) in enumerate(zip(encoded, decoded)):
-                    if char_e not in to_keep or char_d not in to_keep:
-                        del encoded[j]
-                        del decoded[j]
-                        gc.collect()
-
             plain.append(decoded)
             cipher.append(encoded)
 
@@ -76,14 +70,6 @@ class DataLoader:
             encoded = list(encoded.rstrip('\n'))
             decoded = list(decoded.rstrip('\n'))
 
-            if self.lm:
-                to_keep = list(string.ascii_lowercase) + [' ', ',', '.']
-                for j, (char_e, char_d) in enumerate(zip(encoded, decoded)):
-                    if char_e not in to_keep or char_d not in to_keep:
-                        del encoded[j]
-                        del decoded[j]
-                        gc.collect()
-
             plain.append(decoded)
             cipher.append(encoded)
 
@@ -102,13 +88,78 @@ class DataLoader:
         return f
 
 
+class HMMTrainer(hmm.HiddenMarkovModelTrainer):
+
+    def train_supervised(self, labelled_sequences, extra_data=False, estimator=None):
+        # This is copied from HiddenMarkovModelTrainer
+
+        if estimator is None:
+            estimator = lambda fdist, bins: MLEProbDist(fdist)
+
+        # count occurrences of starting states, transitions out of each state
+        # and output symbols observed in each state
+        known_symbols = set(self._symbols)
+        known_states = set(self._states)
+
+        starting = FreqDist()
+        transitions = ConditionalFreqDist()
+        outputs = ConditionalFreqDist()
+        for sequence in labelled_sequences:
+            lasts = None
+            for token in sequence:
+                state = token[1]
+                symbol = token[0]
+                if lasts is None:
+                    starting[state] += 1
+                else:
+                    transitions[lasts][state] += 1
+                outputs[state][symbol] += 1
+                lasts = state
+
+                # update the state and symbol lists
+                if state not in known_states:
+                    self._states.append(state)
+                    known_states.add(state)
+
+                if symbol not in known_symbols:
+                    self._symbols.append(symbol)
+                    known_symbols.add(symbol)
+
+        if extra_data:
+            print('-'*20)
+            print("Using extra data to calculate transition probability")
+            sent = ""
+            for word in tqdm(treebank.words()):
+                if word == '.':
+                    sent = sent[:-1] + word
+                    lasts = None
+                    for c in sent:
+                        if c in list(string.ascii_lowercase)+[' ', ',', '.']:
+                            if lasts is not None:
+                                transitions[lasts][c] += 1
+                        lasts = c
+                    sent = ""
+                elif word == ',':
+                    sent = sent[:-1] + word + ' '
+                else:
+                    sent += word + ' '
+
+        # create probability distributions (with smoothing)
+        N = len(self._states)
+        pi = estimator(starting, N)
+        A = ConditionalProbDist(transitions, estimator, N)
+        B = ConditionalProbDist(outputs, estimator, len(self._symbols))
+
+        return hmm.HiddenMarkovModelTagger(self._symbols, self._states, A, B, pi)
+
 class Tagger:
 
     def __init__(self, data_loader, laplace=False, lm=False):
         self.data_loader = data_loader
         self.laplace = laplace
         self.dictionary = list(string.ascii_lowercase) + [',', ' ', '.']
-        self.model = hmm.HiddenMarkovModelTrainer(states=self.dictionary, symbols=self.dictionary)
+        self.model = HMMTrainer(states=self.dictionary, symbols=self.dictionary)
+        self.lm = lm
 
     def train(self):
         print('-' * 20)
@@ -116,11 +167,12 @@ class Tagger:
         train_corpus = self.data_loader.get_train_corpus()
         labelled = list()
         for cipher, text in zip(train_corpus[0], train_corpus[1]):
-            labelled.append(list(zip(cipher, text)))
+            labelled.append(zip(cipher, text))
+
         if self.laplace:
-            self.model = self.model.train(labeled_sequences=labelled, estimator=laplace)
+            self.model = self.model.train_supervised(labelled_sequences=labelled, extra_data=self.lm, estimator=laplace)
         else:
-            self.model = self.model.train(labeled_sequences=labelled)
+            self.model = self.model.train_supervised(labelled_sequences=labelled, extra_data=self.lm)
         prediction = self._tag(train_corpus[0])
         acc = score(DataLoader.flat(train_corpus[1]), DataLoader.flat(prediction))
         print("Training Accuracy : %f" % acc)
@@ -156,15 +208,10 @@ def main():
                         help='Path to data directory')
     parser.add_argument('-laplace', action='store_true', help='Use laplace smoothing')
     parser.add_argument('-lm', action='store_true', help='Improved plaintext modelling')
-    # TODO Uncomment this line below before officially submit the code
-    # parser.add_argument('cipher_folder', type=str, default='cipher1', choices=['cipher1', 'cipher2', 'cipher3'], help='Which cipher to use')
+    parser.add_argument('cipher_folder', type=str, default='cipher1', choices=['cipher1', 'cipher2', 'cipher3'], help='Which cipher to use')
     config = parser.parse_args()
 
-    # TODO Uncomment this line below before officially submit the code
-    # task = config.cipher_folder
-    task = 'cipher1'
-    config.laplace = True
-    config.lm = False
+    task = config.cipher_folder
 
     # Modelling start below here
     dl = DataLoader(config.data_dir, task)

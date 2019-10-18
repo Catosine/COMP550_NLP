@@ -10,12 +10,12 @@ import gc
 
 class DataLoader:
 
-    def __init__(self, data_dir, task):
+    def __init__(self, data_dir, task, extra_data=None):
         self.train_cipher = osp.join(data_dir, task, 'train_cipher.txt')
         self.train_plain = osp.join(data_dir, task, 'train_plain.txt')
         self.test_cipher = osp.join(data_dir, task, 'test_cipher.txt')
         self.test_plain = osp.join(data_dir, task, 'test_plain.txt')
-
+        self.extra_data = extra_data
         self.train_corpus = None
         self.test_corpus = None
         self.train_dictionary = None
@@ -116,7 +116,7 @@ class Tagger:
         train_corpus = self.data_loader.get_train_corpus()
         labelled = list()
         for cipher, text in zip(train_corpus[0], train_corpus[1]):
-            labelled.append([(c, t) for c, t in zip(cipher, text)])
+            labelled.append(list(zip(cipher, text)))
         if self.laplace:
             self.model = self.model.train(labeled_sequences=labelled, estimator=laplace)
         else:

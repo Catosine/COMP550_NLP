@@ -56,3 +56,4 @@ Please refers to code, or try:
 `python3 a1q3.py -h` or `python3 a1q3.py --help`
 
 ## Reference
+1. Marcus, Mitchell, et al. "The Penn Treebank: annotating predicate argument structure." Proceedings of the workshop on Human Language Technology. Association for Computational Linguistics, 1994.

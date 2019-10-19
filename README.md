@@ -17,13 +17,13 @@ This is the folder for the third question of the second assignment. I
 planned to implement a standard hidden Markov model to solve a sets of 
 ciphers encrypted in three different ways. The dataset is retrived from
 professor, which may not be able to be uploaded here. In addition to
-improve the tagging accuracy, I used
-[The Blog Authorship Corpus](http://u.cs.biu.ac.il/~koppel/BlogCorpus.htm)
+improve the tagging accuracy, I used nltk built-in corpus
+[Penn Treebank](https://www.nltk.org/_modules/nltk/corpus.html)
 to count the transition probilities.
 
 # References
 1. Pang, Bo, and Lillian Lee. "Seeing stars: Exploiting class relationships for sentiment categorization with respect to rating scales." Proceedings of the 43rd annual meeting on association for computational linguistics. Association for Computational Linguistics, 2005.
 2. Pennington, Jeffrey, Richard Socher, and Christopher Manning. "Glove: Global vectors for word representation." Proceedings of the 2014 conference on empirical methods in natural language processing (EMNLP). 2014.
-3. Schler, Jonathan, et al. "Effects of age and gender on blogging." AAAI spring symposium: Computational approaches to analyzing weblogs. Vol. 6. 2006.
+3. Marcus, Mitchell, et al. "The Penn Treebank: annotating predicate argument structure." Proceedings of the workshop on Human Language Technology. Association for Computational Linguistics, 1994.
 # License
 This project is under the MIT license.

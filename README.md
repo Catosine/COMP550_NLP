@@ -12,7 +12,7 @@ categorization with respect to rating scale_](http://www.cs.cornell.edu/home/lle
 by Bo Pang and Lillian Lee in 2005. You may access the data from [here](http://www.cs.cornell.edu/people/pabo/movie-review-data/).
 Also, the pretrained word embeddings, GloVe, is used in the experiment.
 
-- [Decipherment_with_HMM]()  
+- [Decipherment_with_HMM](https://github.com/Catosine/COMP550_NLP/tree/master/Decipherment_with_HMMs)  
 This is the folder for the third question of the second assignment. I 
 planned to implement a standard hidden Markov model to solve a sets of 
 ciphers encrypted in three different ways. The dataset is retrived from

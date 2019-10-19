@@ -19,28 +19,35 @@ text will be "ktexilbshqwnzpo".
 ## Required Package
 1. nltk
 2. sklearn
+3. tqdm
 
 ## Required Dataset
 1. Dataset provided by professor
-2. [The Blog Authorship Corpus](http://u.cs.biu.ac.il/~koppel/BlogCorpus.htm)
+2. Penn Treebank (Accessed by `nltk.corpus.treebank`)
 
 ## How to run the code?  
 ~~~~
 # Suppose the positive dat has been kept at 
-# path/to/the/data/
+# absolute/path/to/the/data/
 
 # To train a HMM for cipher1
-python3 decipher.py --data_dir path/to/the/data \
+python3 decipher.py --data_dir absolute/path/to/the/data \
                     cipher1
 
 # To train a HMM for cipher2 using external corpus
-python3 decipher.py --data_dir path/to/the/data \
-                    --lm \
+python3 decipher.py --data_dir absolute/path/to/the/data \
+                    -lm \
                     cipher2
                     
 # To train a HMM for cipher3 using Laplace smoothing
-python3 decipher.py --data_dir path/to/the/data \
-                    --laplace \
+python3 decipher.py --data_dir absolute/path/to/the/data \
+                    -laplace \
+                    cipher3
+                    
+# To train a HMM for cipher3 using external corpus and Laplace smoothing
+python3 decipher.py --data_dir absolute/path/to/the/data \
+                    -lm \
+                    -laplace \
                     cipher3
 ~~~~
 

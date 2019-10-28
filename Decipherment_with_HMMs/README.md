@@ -53,7 +53,7 @@ python3 decipher.py --data_dir absolute/path/to/the/data \
 
 ## Details about parameters  
 Please refers to code, or try:
-`python3 a1q3.py -h` or `python3 a1q3.py --help`
+`python3 decipher.py -h` or `python3 decipher.py --help`
 
 ## Reference
 1. Marcus, Mitchell, et al. "The Penn Treebank: annotating predicate argument structure." Proceedings of the workshop on Human Language Technology. Association for Computational Linguistics, 1994.
